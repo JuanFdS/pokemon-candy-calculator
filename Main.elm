@@ -65,7 +65,7 @@ update msg model =
             ( { model | searchText = newSearchText }, Cmd.none )
 
         Search ->
-            ( { model | searchResult = Loading }, Http.get { url = getPokemonUrl model.searchText, expect = Http.expectJson GotPokemon pokemonFromJSON } )
+            ( { model | searchResult = Loading, searchText = "" }, Http.get { url = getPokemonUrl model.searchText, expect = Http.expectJson GotPokemon pokemonFromJSON } )
 
         GotPokemon result ->
             case result of
@@ -91,13 +91,13 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div [] [ viewSearchInput model.searchText, button [ onClick Search ] [ text "Search!" ], viewResult model.searchResult ]
+    div [ style "text-align" "center" ] [ viewSearchInput model.searchText, button [ onClick Search ] [ text "Search!" ], viewResult model.searchResult ]
 
 
 viewSearchInput : String -> Html Msg
 viewSearchInput searchText =
     Html.form [ onSubmit Search ]
-        [ input [ placeholder "Enter an url", value searchText, onInput ChangeSearchText ] []
+        [ input [ placeholder "Enter an url", value searchText, onInput ChangeSearchText, autofocus True ] []
         ]
 
 
