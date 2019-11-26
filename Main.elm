@@ -118,6 +118,60 @@ type GrowthRate
     = GrowthRate { speed : GrowthRateSpeed, pokemons : List String, expPerLevel : Dict Int Int }
 
 
+type ExpCandy
+    = CandyXS
+    | CandyS
+    | CandyM
+    | CandyL
+    | CandyXL
+
+
+allExpCandies =
+    [ CandyXS, CandyS, CandyM, CandyL, CandyXL ]
+
+
+candyName candy =
+    case candy of
+        CandyXS ->
+            "CandyXS"
+
+        CandyS ->
+            "CandyS"
+
+        CandyM ->
+            "CandyM"
+
+        CandyL ->
+            "CandyL"
+
+        CandyXL ->
+            "CandyXL"
+
+
+expGiven : ExpCandy -> Int
+expGiven candy =
+    case candy of
+        CandyXS ->
+            100
+
+        CandyS ->
+            800
+
+        CandyM ->
+            3000
+
+        CandyL ->
+            10000
+
+        CandyXL ->
+            30000
+
+
+candiesNeededForExp : ExpCandy -> Int -> Int
+candiesNeededForExp candy exp =
+    ceiling (toFloat exp / toFloat (expGiven candy))
+
+
 type GrowthRateSpeed
     = Slow
     | Medium
@@ -205,7 +259,11 @@ update msg model =
             ( { model | searchText = newSearchText }, Cmd.none )
 
         Search ->
-            ( { model | searchResult = Loading, searchText = "" }, Http.get { url = getPokemonUrl model.searchText, expect = Http.expectJson GotPokemon pokemonFromJSON } )
+            if String.isEmpty model.searchText then
+                ( model, Cmd.none )
+
+            else
+                ( { model | searchResult = Loading, searchText = "" }, Http.get { url = getPokemonUrl model.searchText, expect = Http.expectJson GotPokemon pokemonFromJSON } )
 
         GotAllGrowthRates (Ok growthRates) ->
             ( { model | growthRates = growthRates }, Cmd.none )
@@ -289,8 +347,8 @@ viewGrowthRate actualExp (GrowthRate growthRate) =
             growthRate.expPerLevel |> Dict.map (\_ exp -> exp - actualExp)
     in
     div []
-        [ div [] [ text <| "Growth Rate speed: " ++ speedName growthRate.speed ]
-        , div [] [ text <| "Nivel actual: " ++ String.fromInt nivelActual ]
+        [ h2 [] [ text <| "Growth Rate speed: " ++ speedName growthRate.speed ]
+        , h2 [] [ text <| "Nivel actual: " ++ String.fromInt nivelActual ]
         , expNeededUntilLevel
             |> Dict.filter (\_ exp -> exp > 0)
             |> viewExpRequeridaPorNivel
@@ -300,7 +358,7 @@ viewGrowthRate actualExp (GrowthRate growthRate) =
 viewPokemon : Pokemon -> Int -> List GrowthRate -> Html Msg
 viewPokemon (Pokemon pokemon) exp growthRates =
     div []
-        [ div [] [ text pokemon.name ]
+        [ h1 [] [ text pokemon.name ]
         , div [] [ img [ src pokemon.imageUrl ] [] ]
         , viewGrowthRateForPokemon (Pokemon pokemon) exp growthRates
         ]
@@ -318,7 +376,20 @@ viewGrowthRateForPokemon pokemon exp growthRates =
 
 viewExpRequeridaPorNivel : Dict Int Int -> Html Msg
 viewExpRequeridaPorNivel expRequeridaPorNivel =
-    ul [] (List.map (\( nivel, exp ) -> li [] [ text <| String.fromInt nivel, text "->", text <| String.fromInt exp ]) <| toList <| expRequeridaPorNivel)
+    ul []
+        (List.map
+            (\( nivel, exp ) ->
+                li []
+                    [ h3 [] [ text <| "Nivel: " ++ String.fromInt nivel ]
+                    , h4 [] [ text <| "Experiencia necesaria: " ++ String.fromInt exp ]
+                    , h4 [] [ text <| "Caramelos necesarios para alcanzar el nivel" ]
+                    , pre [ style "display" "flex", style "flex-direction" "column" ] (List.map (\candy -> h4 [] [ text <| candyName candy ++ ": " ++ String.fromInt (candiesNeededForExp candy exp) ]) allExpCandies)
+                    ]
+            )
+         <|
+            toList <|
+                expRequeridaPorNivel
+        )
 
 
 pokemonFromJSON : Decoder Pokemon
