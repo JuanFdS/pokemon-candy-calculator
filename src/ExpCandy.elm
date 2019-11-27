@@ -1,7 +1,7 @@
 module ExpCandy exposing (..)
 
 import Html
-import Html.Attributes
+import Html.Attributes exposing (style)
 
 
 type alias Exp =
@@ -23,19 +23,19 @@ allExpCandies =
 candyName candy =
     case candy of
         CandyXS ->
-            "CandyXS"
+            "XS"
 
         CandyS ->
-            "CandyS"
+            "S"
 
         CandyM ->
-            "CandyM"
+            "M"
 
         CandyL ->
-            "CandyL"
+            "L"
 
         CandyXL ->
-            "CandyXL"
+            "XL"
 
 
 expGiven : ExpCandy -> Exp
@@ -85,12 +85,13 @@ candiesNeededForExp candy exp =
 
 viewCandyNeededForExp : Exp -> ExpCandy -> Html.Html a
 viewCandyNeededForExp exp candy =
-    Html.h4 []
-        [ viewCandyImage candy
-        , Html.text <| candyName candy ++ ": " ++ String.fromInt (candiesNeededForExp candy exp)
+    Html.h4 [ style "display" "flex", style "flex-direction" "column", style "margin-right" "1.5em", style "margin-left" "1.5em" ]
+        [ Html.text <| candyName candy
+        , viewCandyImage candy
+        , Html.text <| String.fromInt (candiesNeededForExp candy exp)
         ]
 
 
 viewCandyImage : ExpCandy -> Html.Html a
 viewCandyImage candy =
-    Html.img [ Html.Attributes.src (imageUrl candy) ] []
+    Html.img [ style "width" "3em", style "height" "3em", Html.Attributes.src (imageUrl candy) ] []

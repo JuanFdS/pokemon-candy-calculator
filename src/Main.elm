@@ -1,5 +1,6 @@
 module Main exposing (Model, Msg(..), SearchResult(..), init, main, subscriptions, update, view, viewResult)
 
+import Array exposing (Array)
 import Browser
 import Debug exposing (..)
 import Dict exposing (..)
@@ -12,8 +13,33 @@ import Http
 import Json.Decode exposing (Decoder, at, field, index, int, list, string)
 import List exposing (..)
 import PokeApi exposing (getPokemonUrl)
-import Pokemon exposing (Pokemon(..), pokemonFromJSON)
+import Pokemon exposing (Pokemon(..), growthRateForPokemon, pokemonFromJSON)
 import Task exposing (..)
+
+
+type alias Level =
+    Int
+
+
+type alias CollapsableLevels =
+    Dict Level Collapsed
+
+
+levelCollapsed : Level -> CollapsableLevels -> Collapsed
+levelCollapsed level collapsableLevels =
+    collapsableLevels
+        |> Dict.get level
+        |> Maybe.withDefault Collapsed
+
+
+toggleCollapsed : Collapsed -> Collapsed
+toggleCollapsed collapsed =
+    case collapsed of
+        Collapsed ->
+            Extended
+
+        Extended ->
+            Collapsed
 
 
 
@@ -34,7 +60,7 @@ main =
 
 
 type alias Model =
-    { exp : Int, searchResult : SearchResult, searchText : String, growthRates : List GrowthRate }
+    { exp : Int, searchResult : SearchResult, searchText : String, growthRates : List GrowthRate, levels : CollapsableLevels }
 
 
 growthRatesLoaded : Model -> Bool
@@ -42,9 +68,29 @@ growthRatesLoaded model =
     not <| List.isEmpty model.growthRates
 
 
+pokemonActualLevel : GrowthRate -> Model -> Int
+pokemonActualLevel growthRate model =
+    model
+        |> expNeededUntilLevels growthRate
+        |> Dict.filter (\_ exp -> exp <= 0)
+        |> Dict.keys
+        |> List.maximum
+        |> Maybe.withDefault 1
+
+
+expNeededUntilLevels : GrowthRate -> Model -> Dict Level Exp
+expNeededUntilLevels (GrowthRate growthRate) model =
+    growthRate.expPerLevel |> Dict.map (\_ exp -> exp - model.exp)
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { exp = 0, searchResult = WaitingForInput, searchText = "", growthRates = [] }, Task.attempt GotAllGrowthRates getAllGrowthRates )
+    ( { exp = 0, searchResult = WaitingForInput, searchText = "", growthRates = [], levels = Dict.empty }, Task.attempt GotAllGrowthRates getAllGrowthRates )
+
+
+type Collapsed
+    = Collapsed
+    | Extended
 
 
 
@@ -57,6 +103,7 @@ type Msg
     | GotAllGrowthRates (Result Http.Error (List GrowthRate))
     | GotPokemon (Result Http.Error Pokemon)
     | ChangeExp (Maybe Int)
+    | ToggleLevelCollapsed Level
 
 
 type SearchResult
@@ -91,7 +138,12 @@ update msg model =
             ( { model | searchResult = Failure }, Cmd.none )
 
         GotPokemon (Ok pokemon) ->
-            ( { model | searchResult = Success pokemon }, Cmd.none )
+            case growthRateForPokemon pokemon model.growthRates of
+                Just (GrowthRate growthRate) ->
+                    ( { model | searchResult = Success pokemon, levels = Dict.map (\_ _ -> Collapsed) <| growthRate.expPerLevel }, Cmd.none )
+
+                Nothing ->
+                    ( { model | searchResult = Failure }, Cmd.none )
 
         GotPokemon (Err _) ->
             ( { model | searchResult = Failure }, Cmd.none )
@@ -101,6 +153,9 @@ update msg model =
 
         ChangeExp Nothing ->
             ( model, Cmd.none )
+
+        ToggleLevelCollapsed level ->
+            ( { model | levels = Dict.update level (Maybe.map toggleCollapsed) model.levels }, Cmd.none )
 
 
 
@@ -118,7 +173,7 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div [ style "text-align" "center" ]
+    div [ style "font-size" "20px", style "padding-top" "2em", style "padding-bottom" "5em", style "text-align" "center", style "backgroundColor" "#5FAC79" ]
         [ viewSearchInput model
         , viewActualExpInput model.exp
         , viewResult model
@@ -128,15 +183,16 @@ view model =
 viewActualExpInput : Int -> Html Msg
 viewActualExpInput exp =
     div []
-        [ text "Exp actual"
-        , Html.input [ onInput (ChangeExp << String.toInt), attribute "type" "number", value <| String.fromInt exp ] []
+        [ h4 [] [ text "How much exp does it have?: " ]
+        , Html.input [ onInput (ChangeExp << String.toInt), style "font-size" "1em", attribute "type" "number", value <| String.fromInt exp ] []
         ]
 
 
 viewSearchInput : Model -> Html Msg
 viewSearchInput model =
     Html.form [ onSubmit Search ]
-        [ input [ onBlur Search, disabled <| not <| growthRatesLoaded model, placeholder "Pone un pokemon...", value model.searchText, onInput ChangeSearchText, autofocus True ] []
+        [ h4 [] [ text "What's the species of your pokemon?: " ]
+        , input [ onBlur Search, disabled <| not <| growthRatesLoaded model, style "font-size" "1em", placeholder "", value model.searchText, onInput ChangeSearchText, autofocus True ] []
         ]
 
 
@@ -153,57 +209,88 @@ viewResult model =
             text "Loading..."
 
         Success pokemon ->
-            viewPokemon pokemon model.exp model.growthRates
+            viewPokemon pokemon model
 
 
-viewGrowthRate : Int -> GrowthRate -> Html Msg
-viewGrowthRate actualExp (GrowthRate growthRate) =
-    let
-        nivelActual =
-            expNeededUntilLevel |> Dict.filter (\_ exp -> exp <= 0) |> Dict.keys |> List.maximum |> Maybe.withDefault 1
-
-        expNeededUntilLevel =
-            growthRate.expPerLevel |> Dict.map (\_ exp -> exp - actualExp)
-    in
+viewGrowthRate : Model -> GrowthRate -> Html Msg
+viewGrowthRate model growthRate =
     div []
-        [ h2 [] [ text <| "Growth Rate speed: " ++ speedName growthRate.speed ]
-        , h2 [] [ text <| "Nivel actual: " ++ String.fromInt nivelActual ]
-        , expNeededUntilLevel
+        [ model
+            |> expNeededUntilLevels growthRate
             |> Dict.filter (\_ exp -> exp > 0)
-            |> viewExpRequeridaPorNivel
+            |> viewExpRequeridaPorNivel model.levels
         ]
 
 
-viewPokemon : Pokemon -> Int -> List GrowthRate -> Html Msg
-viewPokemon (Pokemon pokemon) exp growthRates =
+viewPokemon : Pokemon -> Model -> Html Msg
+viewPokemon (Pokemon pokemon) model =
     let
-        growthRateView =
-            growthRates
+        growthRate =
+            model.growthRates
                 |> growthRateForPokemonName pokemon.name
-                |> Maybe.map (viewGrowthRate exp)
+
+        growthRateView =
+            growthRate
+                |> Maybe.map (viewGrowthRate model)
                 |> Maybe.withDefault (div [] [])
+
+        actualLevel =
+            Maybe.withDefault 1 <| Maybe.map (\aGrowthRate -> pokemonActualLevel aGrowthRate model) growthRate
     in
     div []
-        [ h1 [] [ text pokemon.name ]
-        , div [] [ img [ src pokemon.imageUrl ] [] ]
+        [ h2 [] [ text <| pokemon.name ++ " Lv. " ++ String.fromInt actualLevel ]
+        , div [] [ img [ style "width" "7em", style "height" "7em", src pokemon.imageUrl ] [] ]
         , growthRateView
         ]
 
 
-viewExpRequeridaPorNivel : Dict Int Int -> Html Msg
-viewExpRequeridaPorNivel expRequeridaPorNivel =
-    ul []
-        (List.map
-            (\( nivel, exp ) ->
-                li []
-                    [ h3 [] [ text <| "Nivel: " ++ String.fromInt nivel ]
-                    , h4 [] [ text <| "Experiencia necesaria: " ++ String.fromInt exp ]
-                    , h4 [] [ text <| "Caramelos necesarios para alcanzar el nivel" ]
-                    , pre [ style "display" "flex", style "flex-direction" "column" ]
-                        (List.map (viewCandyNeededForExp exp) allExpCandies)
-                    ]
-            )
-         <|
-            toList <|
-                expRequeridaPorNivel
+possibleColors : Array String
+possibleColors =
+    Array.fromList
+        [ "#6FB9B5", "#C36E6E", "#8FE08C", "#BAC571" ]
+
+
+colors : List String
+colors =
+    List.map (\n -> Maybe.withDefault "#FFFFFF" <| Array.get (modBy (Array.length possibleColors) n) possibleColors) (range 1 100)
+
+
+zip =
+    List.map2 Tuple.pair
+
+
+viewExpRequeridaPorNivel : CollapsableLevels -> Dict Level Exp -> Html Msg
+viewExpRequeridaPorNivel collapsableLevels expRequeridaPorNivel =
+    div []
+        (expRequeridaPorNivel
+            |> toList
+            |> List.sort
+            |> List.reverse
+            |> zip colors
+            |> List.map
+                (\( color, ( level, exp ) ) ->
+                    div [ style "border" "outset", style "background" color ]
+                        [ case levelCollapsed level collapsableLevels of
+                            Collapsed ->
+                                viewCollapsedLevel level
+
+                            Extended ->
+                                viewExtendedLevel ( level, exp )
+                        ]
+                )
         )
+
+
+viewCollapsedLevel : Level -> Html Msg
+viewCollapsedLevel level =
+    div [ onClick <| ToggleLevelCollapsed level ] [ h3 [] [ text <| "Level: " ++ String.fromInt level ] ]
+
+
+viewExtendedLevel ( level, exp ) =
+    div []
+        [ h3 [ onClick <| ToggleLevelCollapsed level ] [ text <| "Level: " ++ String.fromInt level ]
+        , h4 [] [ text <| "Needed exp: " ++ String.fromInt exp ]
+        , h4 [] [ text <| "Candies needed to reach the level" ]
+        , pre [ style "display" "flex", style "flex-direction" "row", style "justify-content" "center" ]
+            (List.map (viewCandyNeededForExp exp) allExpCandies)
+        ]
