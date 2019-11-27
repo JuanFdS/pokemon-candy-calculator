@@ -199,7 +199,8 @@ viewExpRequeridaPorNivel expRequeridaPorNivel =
                     [ h3 [] [ text <| "Nivel: " ++ String.fromInt nivel ]
                     , h4 [] [ text <| "Experiencia necesaria: " ++ String.fromInt exp ]
                     , h4 [] [ text <| "Caramelos necesarios para alcanzar el nivel" ]
-                    , pre [ style "display" "flex", style "flex-direction" "column" ] (List.map (\candy -> h4 [] [ text <| candyName candy ++ ": " ++ String.fromInt (candiesNeededForExp candy exp) ]) allExpCandies)
+                    , pre [ style "display" "flex", style "flex-direction" "column" ]
+                        (List.map (viewCandyNeededForExp exp) allExpCandies)
                     ]
             )
          <|

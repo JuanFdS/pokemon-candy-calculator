@@ -1,5 +1,8 @@
 module ExpCandy exposing (..)
 
+import Html
+import Html.Attributes
+
 
 type alias Exp =
     Int
@@ -54,6 +57,40 @@ expGiven candy =
             30000
 
 
+imageUrl : ExpCandy -> String
+imageUrl candy =
+    "../assets/"
+        ++ (case candy of
+                CandyXS ->
+                    "exp-candy-xs.png"
+
+                CandyS ->
+                    "exp-candy-s.png"
+
+                CandyM ->
+                    "exp-candy-m.png"
+
+                CandyL ->
+                    "exp-candy-l.png"
+
+                CandyXL ->
+                    "exp-candy-xl.png"
+           )
+
+
 candiesNeededForExp : ExpCandy -> Exp -> Int
 candiesNeededForExp candy exp =
     ceiling (toFloat exp / toFloat (expGiven candy))
+
+
+viewCandyNeededForExp : Exp -> ExpCandy -> Html.Html a
+viewCandyNeededForExp exp candy =
+    Html.h4 []
+        [ viewCandyImage candy
+        , Html.text <| candyName candy ++ ": " ++ String.fromInt (candiesNeededForExp candy exp)
+        ]
+
+
+viewCandyImage : ExpCandy -> Html.Html a
+viewCandyImage candy =
+    Html.img [ Html.Attributes.src (imageUrl candy) ] []
