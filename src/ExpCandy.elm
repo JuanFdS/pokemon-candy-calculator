@@ -83,13 +83,37 @@ candiesNeededForExp candy exp =
     ceiling (toFloat exp / toFloat (expGiven candy))
 
 
-viewCandyNeededForExp : Exp -> ExpCandy -> Html.Html a
-viewCandyNeededForExp exp candy =
-    Html.h4 [ style "display" "flex", style "flex-direction" "column", style "margin-right" "1.5em", style "margin-left" "1.5em" ]
-        [ Html.text <| candyName candy
+type alias CandiesForExp =
+    { xs : Int, s : Int, m : Int, l : Int, xl : Int }
+
+
+allCandiesNeededForExp : Exp -> CandiesForExp
+allCandiesNeededForExp exp =
+    { xs = candiesNeededForExp CandyXS exp, s = candiesNeededForExp CandyS exp, m = candiesNeededForExp CandyM exp, l = candiesNeededForExp CandyL exp, xl = candiesNeededForExp CandyXL exp }
+
+
+viewCandy : ExpCandy -> Html.Html a
+viewCandy candy =
+    Html.div [ style "display" "flex", style "align-items" "center", style "flex-direction" "row", style "margin-right" "1.5em", style "margin-left" "1.5em" ]
+        [ Html.h4 [] [ Html.text <| candyName candy ]
         , viewCandyImage candy
-        , Html.text <| String.fromInt (candiesNeededForExp candy exp)
         ]
+
+
+viewAmountofCandyNeededForExp : Exp -> ExpCandy -> Html.Html a
+viewAmountofCandyNeededForExp exp candy =
+    let
+        candiesNeeded =
+            candiesNeededForExp candy exp
+
+        candiesNeededText =
+            if candiesNeeded <= 0 then
+                "--"
+
+            else
+                String.fromInt candiesNeeded
+    in
+    Html.h4 [] [ Html.text candiesNeededText ]
 
 
 viewCandyImage : ExpCandy -> Html.Html a
