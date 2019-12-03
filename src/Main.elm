@@ -184,7 +184,7 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ style "font-size" "20px", style "display" "flex", style "height" "100vh", style "padding-top" "2em", style "padding-bottom" "5em", style "padding-left" "5em", style "backgroundColor" "#5FAC79" ]
+    div [ style "font-size" "20px", style "display" "flex", style "height" "100vh", style "padding-top" "2em", style "padding-bottom" "5em", style "padding-left" "5em", style "backgroundColor" "lightblue" ]
         [ div [ style "display" "block-inline", style "width" "25em" ]
             [ viewPokemon model
             , viewSearchInput model
