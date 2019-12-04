@@ -2,7 +2,6 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Array exposing (Array)
 import Browser
-import Debug exposing (..)
 import Dict exposing (..)
 import ExpCandy exposing (..)
 import GrowthRate exposing (..)
@@ -194,7 +193,6 @@ view model =
         , style "padding-bottom" "5em"
         , style "padding-left" "3em"
         , style "padding-right" "3em"
-        , style "backgroundColor" "lightblue"
         ]
         [ div [ style "display" "block-inline", style "width" "25em" ]
             [ viewPokemon model
@@ -291,7 +289,7 @@ dialogBoxStyle =
 
 viewPokemonNameAndLevel : Level -> Pokemon -> Html Msg
 viewPokemonNameAndLevel level (Pokemon pokemon) =
-    h4 [ style "text-align" "center" ] [ text <| "Lv. " ++ toString level ++ " " ++ pokemon.name ]
+    h4 [ style "text-align" "center" ] [ text <| "Lv. " ++ String.fromInt level ++ " " ++ pokemon.name ]
 
 
 pokeballPicture : List (Html.Attribute Msg) -> Html Msg
@@ -350,7 +348,7 @@ customLevelHeader ( label, level, exp ) =
             [ text label ]
         , input
             [ onNumericInput ChangeCustomLevel
-            , value (toString level)
+            , value (String.fromInt level)
             , style "text-align" "center"
             , style "width" "3em"
             ]
@@ -360,7 +358,7 @@ customLevelHeader ( label, level, exp ) =
 
 levelHeaderCell : ( Label, Level, Exp ) -> Html Msg
 levelHeaderCell ( label, level, _ ) =
-    cell [ h4 [] [ div [] [ text label ], div [] [ text <| toString level ] ] ]
+    cell [ h4 [] [ div [] [ text label ], div [] [ text <| String.fromInt level ] ] ]
 
 
 levelsTableRow : List ( Label, Level, Exp ) -> ExpCandy -> Html Msg

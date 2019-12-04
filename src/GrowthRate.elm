@@ -70,7 +70,8 @@ speedFromName name =
             FastThenVerySlow
 
         _ ->
-            Debug.todo "no debería pasar nunca por acá"
+            -- It should never get here :(
+            Slow
 
 
 growthRateForPokemonName : String -> List GrowthRate -> Maybe GrowthRate
