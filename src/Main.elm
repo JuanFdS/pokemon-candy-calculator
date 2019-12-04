@@ -11,8 +11,9 @@ import Html.Events exposing (..)
 import Http
 import Json.Decode exposing (Decoder, at, field, index, int, list, string)
 import List exposing (..)
+import Menu exposing (..)
 import PokeApi exposing (getPokemonUrl)
-import Pokemon exposing (Pokemon(..), growthRateForPokemon, pokemonFromJSON)
+import Pokemon exposing (Pokemon(..), allPokemonNames, growthRateForPokemon, pokemonFromJSON)
 import RemoteData exposing (..)
 import Task exposing (..)
 
@@ -54,9 +55,14 @@ main =
     Browser.element
         { init = init
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         , view = view
         }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.map SetAutoState Menu.subscription
 
 
 
@@ -69,6 +75,7 @@ type alias Model =
     , searchText : String
     , growthRates : RemoteData String (List GrowthRate)
     , customLevel : Int
+    , autoState : Menu.State
     }
 
 
@@ -105,7 +112,7 @@ expNeededUntilLevels actualExp (GrowthRate growthRate) =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { exp = 0, searchResult = NotAsked, searchText = "", growthRates = Loading, customLevel = 50 }, Task.attempt GotAllGrowthRates getAllGrowthRates )
+    ( { exp = 0, searchResult = NotAsked, searchText = "", growthRates = Loading, customLevel = 50, autoState = Menu.empty }, Task.attempt GotAllGrowthRates getAllGrowthRates )
 
 
 type Collapsed
@@ -118,20 +125,21 @@ type Collapsed
 
 
 type Msg
-    = Search
+    = Search String
     | ChangeSearchText String
     | GotAllGrowthRates (Result Http.Error (List GrowthRate))
     | GotPokemon (Result Http.Error Pokemon)
     | ChangeExp Int
     | ChangeCustomLevel Int
     | DoNothing
+    | SetAutoState Menu.Msg
 
 
 getPokemonCommand : String -> RemoteData String (List GrowthRate) -> Cmd Msg
 getPokemonCommand pokemonName requestedGrowthRates =
     case requestedGrowthRates of
         Success growthRates ->
-            Http.get { url = getPokemonUrl pokemonName, expect = Http.expectJson GotPokemon (pokemonFromJSON growthRates) }
+            Http.get { url = getPokemonUrl (String.toLower pokemonName), expect = Http.expectJson GotPokemon (pokemonFromJSON growthRates) }
 
         _ ->
             Cmd.none
@@ -143,12 +151,12 @@ update msg model =
         ChangeSearchText newSearchText ->
             ( { model | searchText = newSearchText }, Cmd.none )
 
-        Search ->
-            if String.isEmpty model.searchText then
+        Search pokemonName ->
+            if String.isEmpty pokemonName then
                 ( model, Cmd.none )
 
             else
-                ( { model | searchResult = Loading, searchText = "" }, getPokemonCommand model.searchText model.growthRates )
+                ( { model | searchResult = Loading, searchText = "" }, getPokemonCommand pokemonName model.growthRates )
 
         GotAllGrowthRates (Ok growthRates) ->
             ( { model | growthRates = Success growthRates }, getPokemonCommand "pikachu" model.growthRates )
@@ -175,6 +183,36 @@ update msg model =
 
         ChangeCustomLevel newCustomLevel ->
             ( { model | customLevel = newCustomLevel }, Cmd.none )
+
+        SetAutoState autoMsg ->
+            let
+                ( newState, maybeMsg ) =
+                    Menu.update updateConfig
+                        autoMsg
+                        2
+                        model.autoState
+                        allPokemonNames
+
+                newModel =
+                    { model | autoState = newState }
+            in
+            maybeMsg
+                |> Maybe.map (\updateMsg -> update updateMsg newModel)
+                |> Maybe.withDefault ( newModel, Cmd.none )
+
+
+updateConfig : Menu.UpdateConfig Msg String
+updateConfig =
+    Menu.updateConfig
+        { toId = \x -> x
+        , onKeyDown = \_ _ -> Nothing
+        , onTooLow = Nothing
+        , onTooHigh = Nothing
+        , onMouseEnter = \id -> Nothing
+        , onMouseLeave = \_ -> Nothing
+        , onMouseClick = \pokemonName -> Just <| Search pokemonName
+        , separateSelections = False
+        }
 
 
 
@@ -408,9 +446,14 @@ viewSearchInput : Model -> Html Msg
 viewSearchInput model =
     case model.growthRates of
         Success growthRates ->
-            Html.form [ onSubmit Search ]
+            Html.form [ onSubmit <| Search model.searchText ]
                 [ h4 [] [ text "What's the species of your pokemon?: " ]
-                , input [ onBlur Search, style "font-size" "1em", placeholder "", value model.searchText, onInput ChangeSearchText, autofocus True ] []
+                , input [ style "font-size" "1em", placeholder "", value model.searchText, onInput ChangeSearchText, autofocus True ] []
+                , if String.isEmpty model.searchText then
+                    div [] []
+
+                  else
+                    viewAutoCompleteMenu model
                 ]
 
         Loading ->
@@ -421,3 +464,37 @@ viewSearchInput model =
 
         NotAsked ->
             text "Loading..."
+
+
+viewAutoCompleteMenu model =
+    div [ class "autocomplete-menu" ]
+        [ Html.map SetAutoState <|
+            Menu.view
+                (Menu.viewConfig
+                    { toId = \x -> x
+                    , ul = [ class "autocomplete-list" ]
+                    , li =
+                        \keySelected mouseSelected pokemonName ->
+                            { attributes =
+                                [ classList
+                                    [ ( "autocomplete-item", True )
+                                    , ( "key-selected", keySelected || mouseSelected )
+                                    ]
+                                ]
+                            , children = [ text pokemonName ]
+                            }
+                    }
+                )
+                3
+                model.autoState
+                (suggestedPokemonNames model.searchText)
+        ]
+
+
+suggestedPokemonNames : String -> List String
+suggestedPokemonNames query =
+    if String.isEmpty query then
+        []
+
+    else
+        allPokemonNames |> List.filter (\pokemonName -> String.contains (String.toLower query) (String.toLower pokemonName))
