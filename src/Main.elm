@@ -184,7 +184,18 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ style "font-size" "20px", style "display" "flex", style "height" "100vh", style "padding-top" "2em", style "padding-bottom" "5em", style "padding-left" "5em", style "backgroundColor" "lightblue" ]
+    div
+        [ style "font-size" "18px"
+        , style "display" "flex"
+        , style "flex-wrap" "wrap"
+        , style "height" "100%"
+        , style "width" "100%"
+        , style "padding-top" "2em"
+        , style "padding-bottom" "5em"
+        , style "padding-left" "3em"
+        , style "padding-right" "3em"
+        , style "backgroundColor" "lightblue"
+        ]
         [ div [ style "display" "block-inline", style "width" "25em" ]
             [ viewPokemon model
             , viewSearchInput model
@@ -336,15 +347,14 @@ customLevelHeader : ( Label, Level, Exp ) -> Html Msg
 customLevelHeader ( label, level, exp ) =
     cell
         [ h4 []
-            [ text label
-            , input
-                [ onNumericInput ChangeCustomLevel
-                , value (toString level)
-                , style "width" "3em"
-                , style "text-align" "center"
-                ]
-                []
+            [ text label ]
+        , input
+            [ onNumericInput ChangeCustomLevel
+            , value (toString level)
+            , style "text-align" "center"
+            , style "width" "3em"
             ]
+            []
         ]
 
 
@@ -367,7 +377,6 @@ cell =
     td
         [ style "text-align" "center"
         , style "border" "1px solid lightGray"
-        , style "width" "5em"
         , style "padding" "1em"
         , style "margin" "0"
         ]
@@ -391,7 +400,7 @@ onNumericInput eventConstructor =
 
 viewActualExpInput : Int -> Html Msg
 viewActualExpInput exp =
-    div []
+    div [ style "padding-bottom" "2em" ]
         [ h4 [] [ text "How much exp does it have?: " ]
         , Html.input [ onNumericInput ChangeExp, style "font-size" "1em", attribute "type" "number", value <| String.fromInt exp ] []
         ]
