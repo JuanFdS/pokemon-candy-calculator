@@ -74,10 +74,10 @@ speedFromName name =
             Slow
 
 
-growthRateForPokemonName : String -> List GrowthRate -> Maybe GrowthRate
-growthRateForPokemonName pokemonName growthRates =
+fromGrowthRateSpeed : GrowthRateSpeed -> List GrowthRate -> Maybe GrowthRate
+fromGrowthRateSpeed growthRateSpeed growthRates =
     growthRates
-        |> List.filter (includesPokemonName pokemonName)
+        |> List.filter (\(GrowthRate { speed }) -> speed == growthRateSpeed)
         |> List.head
 
 

@@ -13,7 +13,7 @@ import Json.Decode exposing (Decoder, at, field, index, int, list, string)
 import List exposing (..)
 import Menu exposing (..)
 import PokeApi exposing (getPokemonUrl)
-import Pokemon exposing (Pokemon(..), allPokemonNames, growthRateForPokemon, pokemonFromJSON)
+import Pokemon exposing (..)
 import RemoteData exposing (..)
 import Task exposing (..)
 
@@ -135,14 +135,12 @@ type Msg
     | SetAutoState Menu.Msg
 
 
-getPokemonCommand : String -> RemoteData String (List GrowthRate) -> Cmd Msg
-getPokemonCommand pokemonName requestedGrowthRates =
-    case requestedGrowthRates of
-        Success growthRates ->
-            Http.get { url = getPokemonUrl (String.toLower pokemonName), expect = Http.expectJson GotPokemon (pokemonFromJSON growthRates) }
-
-        _ ->
-            Cmd.none
+findPokemon : String -> Maybe Pokemon
+findPokemon pokemonName =
+    allPokemons
+        |> List.filter (\( name, growthRateSpeed, imageUrl ) -> String.toLower name == String.toLower pokemonName)
+        |> List.head
+        |> Maybe.map (\( name, growthRateSpeed, imageUrl ) -> Pokemon { name = name, growthRateSpeed = growthRateSpeed, imageUrl = imageUrl })
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -156,10 +154,15 @@ update msg model =
                 ( model, Cmd.none )
 
             else
-                ( { model | searchResult = Loading, searchText = "" }, getPokemonCommand pokemonName model.growthRates )
+                case findPokemon pokemonName of
+                    Just pokemon ->
+                        ( { model | searchResult = Success pokemon, searchText = "" }, Cmd.none )
+
+                    Nothing ->
+                        ( { model | searchResult = Failure "Could not find pokemon :(", searchText = "" }, Cmd.none )
 
         GotAllGrowthRates (Ok growthRates) ->
-            ( { model | growthRates = Success growthRates }, getPokemonCommand "pikachu" model.growthRates )
+            ( { model | growthRates = Success growthRates }, Cmd.none )
 
         GotAllGrowthRates (Err x) ->
             ( { model | growthRates = Failure "Could not fetch growth rates" }, Cmd.none )
@@ -264,7 +267,7 @@ viewPokemon model =
 
 
 missignoPicture =
-    pokemonPicture (Pokemon { name = "MissigNo", imageUrl = "../assets/missignNo.png" })
+    pokemonPicture (Pokemon { name = "MissigNo", growthRateSpeed = Slow, imageUrl = "../assets/missignNo.png" })
 
 
 viewWhenPokemonOr : { poke : RemoteData String Pokemon, pokemonView : Pokemon -> Html Msg, errorView : String -> Html Msg } -> Html Msg
@@ -305,7 +308,7 @@ pokemonPicture (Pokemon pokemon) =
             ([ style "width" "100%"
              , style "height" "100%"
              , style "background" "white"
-             , src pokemon.imageUrl
+             , src <| "../assets/pokemon/" ++ pokemon.name ++ ".png"
              ]
                 ++ dialogBoxStyle
             )
